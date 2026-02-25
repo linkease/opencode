@@ -39,6 +39,17 @@ export namespace Config {
   const ModelId = z.string().meta({ $ref: "https://models.dev/model-schema.json#/$defs/Model" })
 
   const log = Log.create({ service: "config" })
+  const REMOTE_CONFIG_TIMEOUT_MS = 60_000
+
+  function isHttpUrl(value: string) {
+    return value.startsWith("http://") || value.startsWith("https://")
+  }
+
+  async function fetchRemoteConfig(url: string) {
+    return fetch(url, { signal: AbortSignal.timeout(REMOTE_CONFIG_TIMEOUT_MS) })
+      .then((res) => (res.ok ? res.text() : ""))
+      .catch(() => "")
+  }
 
   // Managed settings directory for enterprise deployments (highest priority, admin-controlled)
   // These settings override all user and project settings
@@ -111,8 +122,22 @@ export namespace Config {
 
     // Custom config path overrides global config.
     if (Flag.OPENCODE_CONFIG) {
-      result = merge(result, await loadFile(Flag.OPENCODE_CONFIG))
-      log.debug("loaded custom config", { path: Flag.OPENCODE_CONFIG })
+      if (isHttpUrl(Flag.OPENCODE_CONFIG)) {
+        const remoteText = await fetchRemoteConfig(Flag.OPENCODE_CONFIG)
+        if (remoteText) {
+          result = merge(
+            result,
+            await load(remoteText, {
+              dir: Instance.directory,
+              source: Flag.OPENCODE_CONFIG,
+            }),
+          )
+        }
+        log.debug("loaded remote config", { url: Flag.OPENCODE_CONFIG })
+      } else {
+        result = merge(result, await loadFile(Flag.OPENCODE_CONFIG))
+        log.debug("loaded custom config", { path: Flag.OPENCODE_CONFIG })
+      }
     }
 
     // Project config overrides global and remote config.
