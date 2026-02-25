@@ -8,6 +8,15 @@ export const ServeCommand = cmd({
   builder: (yargs) => withNetworkOptions(yargs),
   describe: "starts a headless opencode server",
   handler: async (args) => {
+    if (process.env.OPENCODE_CWD) {
+      try {
+        process.chdir(process.env.OPENCODE_CWD)
+      } catch (error) {
+        console.error(`Failed to change directory to OPENCODE_CWD: ${process.env.OPENCODE_CWD}`)
+        console.error(error)
+        process.exit(1)
+      }
+    }
     if (!Flag.OPENCODE_SERVER_PASSWORD) {
       console.log("Warning: OPENCODE_SERVER_PASSWORD is not set; server is unsecured.")
     }

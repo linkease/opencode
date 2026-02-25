@@ -194,7 +194,8 @@ export namespace Server {
         )
         .use(async (c, next) => {
           if (c.req.path === "/log") return next()
-          const raw = c.req.query("directory") || c.req.header("x-opencode-directory") || process.cwd()
+          const raw =
+            c.req.query("directory") || c.req.header("x-opencode-directory") || process.env.OPENCODE_CWD || process.cwd()
           const directory = (() => {
             try {
               return decodeURIComponent(raw)
